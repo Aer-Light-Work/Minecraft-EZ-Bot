@@ -1,31 +1,39 @@
 {
   "workflows": [
     {
+      "schemaVersion": 2,
       "id": "region-mining-safe",
-      "name": "自动挖区块（安全补给）",
-      "description": "建立挖矿 Home；有可用镐就直接开挖，否则前往补给点取镐；失败沿 error 分支结束。区域挖矿在后台持续运行。",
+      "name": "自动挖区块（可视化安全补给）",
+      "description": "确认挖矿 Home，检查可用镐；缺镐时选择补给点并传送补给，然后装备镐并启动区域挖矿。",
       "enabled": true,
       "trigger": { "type": "manual", "command": "workflow run region-mining-safe" },
+      "variables": {},
+      "settings": { "maxSteps": 256, "timeoutMs": 180000 },
       "nodes": [
-        { "id": "start", "type": "start", "label": "开始", "x": 40, "y": 120 },
-        { "id": "home", "type": "ensure_mining_home", "label": "设置挖矿 Home", "x": 260, "y": 120 },
-        { "id": "pickaxe", "type": "has_usable_pickaxe", "label": "有可用镐？", "x": 500, "y": 120 },
-        { "id": "resupply", "type": "resupply", "label": "去补给点拿镐", "x": 740, "y": 240, "params": { "requirePickaxe": true } },
-        { "id": "equip", "type": "equip", "label": "装备镐子", "x": 980, "y": 120, "params": { "role": "pickaxe" } },
-        { "id": "mine", "type": "start_region_mining", "label": "开始区域挖矿", "x": 1220, "y": 120 },
-        { "id": "end", "type": "end", "label": "已启动", "x": 1460, "y": 120 },
-        { "id": "failed", "type": "end", "label": "补给失败 / 停止", "x": 980, "y": 360 }
+        { "id": "start", "type": "start", "label": "开始", "position": { "x": 40, "y": 160 }, "params": {}, "retry": { "maxAttempts": 1, "delayMs": 0 }, "timeoutMs": 30000 },
+        { "id": "home", "type": "ensure_mining_home", "label": "设置挖矿 Home", "position": { "x": 300, "y": 160 }, "params": {}, "retry": { "maxAttempts": 2, "delayMs": 1000 }, "timeoutMs": 30000 },
+        { "id": "pickaxe", "type": "has_usable_pickaxe", "label": "有可用镐？", "position": { "x": 570, "y": 160 }, "params": {}, "retry": { "maxAttempts": 1, "delayMs": 0 }, "timeoutMs": 10000 },
+        { "id": "find-supply", "type": "find_supply_point", "label": "查找镐子补给点", "position": { "x": 830, "y": 360 }, "params": { "requirePickaxe": true, "variable": "supplyPointId" }, "retry": { "maxAttempts": 2, "delayMs": 1000 }, "timeoutMs": 10000 },
+        { "id": "supply", "type": "resupply_at_point", "label": "传送并取镐", "position": { "x": 1090, "y": 360 }, "params": { "pointVariable": "supplyPointId", "requirePickaxe": true }, "retry": { "maxAttempts": 2, "delayMs": 2000 }, "timeoutMs": 60000 },
+        { "id": "equip", "type": "equip", "label": "装备镐子", "position": { "x": 1090, "y": 120 }, "params": { "role": "pickaxe" }, "retry": { "maxAttempts": 2, "delayMs": 500 }, "timeoutMs": 10000 },
+        { "id": "mine", "type": "start_region_mining", "label": "开始区域挖矿", "position": { "x": 1360, "y": 120 }, "params": {}, "retry": { "maxAttempts": 1, "delayMs": 0 }, "timeoutMs": 30000 },
+        { "id": "end", "type": "end", "label": "已启动", "position": { "x": 1620, "y": 120 }, "params": {}, "retry": { "maxAttempts": 1, "delayMs": 0 }, "timeoutMs": 30000 },
+        { "id": "failed", "type": "end", "label": "补给失败 / 停止", "position": { "x": 1360, "y": 500 }, "params": {}, "retry": { "maxAttempts": 1, "delayMs": 0 }, "timeoutMs": 30000 }
       ],
       "edges": [
-        { "source": "start", "target": "home", "when": "next" },
-        { "source": "home", "target": "pickaxe", "when": "next" },
-        { "source": "pickaxe", "target": "equip", "when": "true" },
-        { "source": "pickaxe", "target": "resupply", "when": "false" },
-        { "source": "resupply", "target": "equip", "when": "next" },
-        { "source": "resupply", "target": "failed", "when": "error" },
-        { "source": "equip", "target": "mine", "when": "next" },
-        { "source": "mine", "target": "end", "when": "next" },
-        { "source": "home", "target": "failed", "when": "error" }
+        { "id": "e-start-home", "source": "start", "sourceHandle": "next", "target": "home", "targetHandle": "exec" },
+        { "id": "e-home-pickaxe", "source": "home", "sourceHandle": "next", "target": "pickaxe", "targetHandle": "exec" },
+        { "id": "e-home-error", "source": "home", "sourceHandle": "error", "target": "failed", "targetHandle": "exec" },
+        { "id": "e-pickaxe-equip", "source": "pickaxe", "sourceHandle": "true", "target": "equip", "targetHandle": "exec" },
+        { "id": "e-pickaxe-find", "source": "pickaxe", "sourceHandle": "false", "target": "find-supply", "targetHandle": "exec" },
+        { "id": "e-find-supply", "source": "find-supply", "sourceHandle": "true", "target": "supply", "targetHandle": "exec" },
+        { "id": "e-find-failed", "source": "find-supply", "sourceHandle": "false", "target": "failed", "targetHandle": "exec" },
+        { "id": "e-supply-equip", "source": "supply", "sourceHandle": "next", "target": "equip", "targetHandle": "exec" },
+        { "id": "e-supply-error", "source": "supply", "sourceHandle": "error", "target": "failed", "targetHandle": "exec" },
+        { "id": "e-equip-mine", "source": "equip", "sourceHandle": "next", "target": "mine", "targetHandle": "exec" },
+        { "id": "e-equip-error", "source": "equip", "sourceHandle": "error", "target": "failed", "targetHandle": "exec" },
+        { "id": "e-mine-end", "source": "mine", "sourceHandle": "next", "target": "end", "targetHandle": "exec" },
+        { "id": "e-mine-error", "source": "mine", "sourceHandle": "error", "target": "failed", "targetHandle": "exec" }
       ]
     }
   ]

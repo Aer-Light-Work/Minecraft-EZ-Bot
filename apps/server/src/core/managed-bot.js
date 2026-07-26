@@ -2116,33 +2116,88 @@ class ManagedBot extends EventEmitter {
     return { completed: Boolean(result), opened };
   }
 
-  async maybeResupply(requirements = {}) {
+  resupplyRequirements(requirements = {}) {
     const bot = this.bot;
-    if (this.resupplyBusy) return { ok: false, reason: 'busy', message: 'another resupply operation is already running' };
-    if (!bot?.entity) return { ok: false, reason: 'offline', message: 'bot world data is unavailable' };
     const hasPickaxe = this.hasUsablePickaxe();
     const hasFood = this.inventoryItems().some((item) => this.isFoodItem(item));
-    const needPickaxe = requirements.requirePickaxe ?? !hasPickaxe;
-    const needFood = requirements.requireFood ?? !hasFood;
-    const needStorage = requirements.requireStorage ?? bot.inventory.emptySlotCount() <= 2;
-    if ((!needPickaxe || hasPickaxe) && (!needFood || hasFood) && (!needStorage || bot.inventory.emptySlotCount() > 2)) {
-      return { ok: true, reason: 'ready', message: 'inventory already has the required supplies' };
-    }
+    return {
+      hasPickaxe,
+      hasFood,
+      needPickaxe: requirements.requirePickaxe ?? !hasPickaxe,
+      needFood: requirements.requireFood ?? !hasFood,
+      needStorage: requirements.requireStorage ?? Boolean(bot?.inventory && bot.inventory.emptySlotCount() <= 2)
+    };
+  }
 
-    const points = [...this.matchingSupplyPoints(null)].filter((point) => (
-      (needStorage && this.supplyPointSupports(point, 'storage')) ||
-      (needPickaxe && this.supplyPointSupports(point, 'pickaxe')) ||
-      (needFood && this.supplyPointSupports(point, 'food'))
+  matchingResupplyCandidates(requirements = {}) {
+    const bot = this.bot;
+    if (!bot?.entity) return [];
+    const state = this.resupplyRequirements(requirements);
+    return [...this.matchingSupplyPoints(null)].filter((point) => (
+      (state.needStorage && this.supplyPointSupports(point, 'storage')) ||
+      (state.needPickaxe && this.supplyPointSupports(point, 'pickaxe')) ||
+      (state.needFood && this.supplyPointSupports(point, 'food'))
     )).sort((a, b) => {
-      const aStorage = needStorage && this.supplyPointSupports(a, 'storage') ? 1 : 0;
-      const bStorage = needStorage && this.supplyPointSupports(b, 'storage') ? 1 : 0;
+      const aStorage = state.needStorage && this.supplyPointSupports(a, 'storage') ? 1 : 0;
+      const bStorage = state.needStorage && this.supplyPointSupports(b, 'storage') ? 1 : 0;
       const aDistance = this.hasSupplyAnchor(a) ? bot.entity.position.distanceTo(new Vec3(a.x, a.y, a.z)) : Number.POSITIVE_INFINITY;
       const bDistance = this.hasSupplyAnchor(b) ? bot.entity.position.distanceTo(new Vec3(b.x, b.y, b.z)) : Number.POSITIVE_INFINITY;
       return bStorage - aStorage || b.priority - a.priority || aDistance - bDistance;
     });
+  }
 
+  selectSupplyPoint(requirements = {}) {
+    return this.matchingResupplyCandidates(requirements)[0] || null;
+  }
+
+  resupplyCompletion(state, opened, pointName = '') {
+    const bot = this.bot;
+    const missing = [];
+    if (state.needPickaxe && !this.hasUsablePickaxe()) missing.push('可用镐子');
+    if (state.needFood && !this.inventoryItems().some((item) => this.isFoodItem(item))) missing.push('食物');
+    if (state.needStorage && bot.inventory.emptySlotCount() <= 2) missing.push('空余背包空间');
+    if (missing.length) return { ok: false, reason: 'stock-empty', message: `${pointName || '已配置 Home'} 未能提供：${missing.join('、')}` };
+    return { ok: false, reason: opened ? 'incomplete' : 'invalid-point', message: opened ? '补给容器已访问，但维护任务未完成' : '扫描范围内没有可用容器，或 Home 传送失败' };
+  }
+
+  async resupplyAtPoint(pointId, requirements = {}) {
+    const bot = this.bot;
+    if (this.resupplyBusy) return { ok: false, reason: 'busy', message: 'another resupply operation is already running' };
+    if (!bot?.entity) return { ok: false, reason: 'offline', message: 'bot world data is unavailable' };
+    const state = this.resupplyRequirements(requirements);
+    if ((!state.needPickaxe || state.hasPickaxe) && (!state.needFood || state.hasFood) && (!state.needStorage || bot.inventory.emptySlotCount() > 2)) {
+      return { ok: true, reason: 'ready', message: 'inventory already has the required supplies' };
+    }
+    const point = this.matchingResupplyCandidates(requirements).find((candidate) => candidate.id === pointId);
+    if (!point) return { ok: false, reason: 'no-point', message: `找不到可满足要求的补给点：${pointId}` };
+
+    this.resupplyBusy = true;
+    try {
+      const operation = await this.operateSupplyPoint(point, state);
+      if (operation.completed) {
+        this.log(`Resupply completed at ${point.name}${point.home ? ` (/home ${point.home})` : ''}.`);
+        return { ok: true, reason: 'completed', pointId: point.id, message: `resupply completed at ${point.name}` };
+      }
+      return this.resupplyCompletion(state, operation.opened, point.name);
+    } catch (error) {
+      return { ok: false, reason: 'point-failed', pointId: point.id, message: `${point.name} 补给失败：${error.message}` };
+    } finally {
+      this.resupplyBusy = false;
+    }
+  }
+
+  async maybeResupply(requirements = {}) {
+    const bot = this.bot;
+    if (this.resupplyBusy) return { ok: false, reason: 'busy', message: 'another resupply operation is already running' };
+    if (!bot?.entity) return { ok: false, reason: 'offline', message: 'bot world data is unavailable' };
+    const state = this.resupplyRequirements(requirements);
+    if ((!state.needPickaxe || state.hasPickaxe) && (!state.needFood || state.hasFood) && (!state.needStorage || bot.inventory.emptySlotCount() > 2)) {
+      return { ok: true, reason: 'ready', message: 'inventory already has the required supplies' };
+    }
+
+    const points = this.matchingResupplyCandidates(requirements);
     if (!points.length) {
-      const roles = [needStorage && '矿物存储', needPickaxe && '镐子补给', needFood && '食物补给'].filter(Boolean).join('、');
+      const roles = [state.needStorage && '矿物存储', state.needPickaxe && '镐子补给', state.needFood && '食物补给'].filter(Boolean).join('、');
       return { ok: false, reason: 'no-point', message: `没有支持${roles}的 Home 补给点；请确认 Home 名称和权限` };
     }
 
@@ -2151,23 +2206,17 @@ class ManagedBot extends EventEmitter {
     try {
       for (const point of points) {
         try {
-          const operation = await this.operateSupplyPoint(point, { needPickaxe, needFood, needStorage });
+          const operation = await this.operateSupplyPoint(point, state);
           opened += operation.opened;
           if (operation.completed) {
             this.log(`Resupply completed at ${point.name}${point.home ? ` (/home ${point.home})` : ''}.`);
-            return { ok: true, reason: 'completed', message: `resupply completed at ${point.name}` };
+            return { ok: true, reason: 'completed', pointId: point.id, message: `resupply completed at ${point.name}` };
           }
         } catch (error) {
           this.log(`Supply point ${point.name} failed: ${error.message}`, 'warn');
         }
       }
-
-      const missing = [];
-      if (needPickaxe && !this.hasUsablePickaxe()) missing.push('可用镐子');
-      if (needFood && !this.inventoryItems().some((item) => this.isFoodItem(item))) missing.push('食物');
-      if (needStorage && bot.inventory.emptySlotCount() <= 2) missing.push('空余背包空间');
-      if (missing.length) return { ok: false, reason: 'stock-empty', message: `所有已配置 Home 都未能提供：${missing.join('、')}` };
-      return { ok: false, reason: opened ? 'incomplete' : 'invalid-point', message: opened ? '补给容器已访问，但维护任务未完成' : '扫描范围内没有可用容器，或 Home 传送失败' };
+      return this.resupplyCompletion(state, opened, '所有已配置 Home');
     } finally {
       this.resupplyBusy = false;
     }

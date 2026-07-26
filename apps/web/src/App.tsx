@@ -223,8 +223,11 @@ function App() {
       setNotice(failed ? `操作完成，但有 ${failed} 个机器人失败` : result.message || '操作完成');
       await refreshRuntime();
       if (refreshDefinitions) await refreshConfig();
+      return result;
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : '操作失败');
+      const message = error instanceof Error ? error.message : '操作失败';
+      setNotice(message);
+      return { ok: false, message };
     }
   }
 
@@ -321,7 +324,7 @@ function Overview({ bots, onlineCount, activeCount, selected, selectBot, setView
 function MetricCard({ label, value, hint, icon, tone }: { label: string; value: string | number; hint: string; icon: string; tone: string }) { return <div className={`metric-card tone-${tone}`}><div className="metric-icon">{icon}</div><span>{label}</span><strong>{value}</strong><small>{hint}</small></div>; }
 function BotOverviewCard({ bot, onClick }: { bot: BotStatus; onClick: () => void }) { const task = taskLabel(bot); return <button className="bot-overview-card" onClick={onClick}><div className="bot-card-top"><span className={`state-pill ${bot.state}`}><i />{stateLabel(bot.state)}</span><span className="card-arrow">↗</span></div><div className="bot-identity"><BotFace bot={bot} size="medium" /><div><h3>{bot.displayName}</h3><p>{bot.host}:{bot.port}</p></div></div><div className="task-line"><span className="task-icon">{taskIcon(bot)}</span><span>{task}</span><b>{bot.username || bot.configuredUsername}</b></div><div className="health-bars"><span><i style={{ width: `${Math.min(100, (bot.health || 0) / 20 * 100)}%` }} /></span><small>生命 {bot.health ?? '—'}</small><span><i style={{ width: `${Math.min(100, (bot.food || 0) / 20 * 100)}%` }} /></span><small>饱食 {bot.food ?? '—'}</small></div></button>; }
 
-function BotManagement(props: { bots: BotStatus[]; selectedIds: string[]; toggleSelection: (id: string) => void; selectAll: () => void; setSelectedIds: (ids: string[]) => void; run: (action: () => Promise<unknown>, refresh?: boolean) => Promise<void>; openAdd: () => void; openEdit: () => void; selected?: BotStatus; deleteBot: (id: string) => Promise<unknown>; setSelectedId: (id: string) => void; whitelist: string[]; saveWhitelist: (names: string[]) => Promise<void> }) {
+function BotManagement(props: { bots: BotStatus[]; selectedIds: string[]; toggleSelection: (id: string) => void; selectAll: () => void; setSelectedIds: (ids: string[]) => void; run: (action: () => Promise<unknown>, refresh?: boolean) => Promise<unknown>; openAdd: () => void; openEdit: () => void; selected?: BotStatus; deleteBot: (id: string) => Promise<unknown>; setSelectedId: (id: string) => void; whitelist: string[]; saveWhitelist: (names: string[]) => Promise<void> }) {
   const { bots, selectedIds, toggleSelection, selectAll, setSelectedIds, run, openAdd, openEdit, selected, deleteBot, setSelectedId, whitelist, saveWhitelist } = props;
   const [whitelistOpen, setWhitelistOpen] = useState(false);
   return <>
@@ -360,7 +363,7 @@ const skillGuides: Record<string, { examples: string[]; notes: string[]; next: s
   'openai-tools': { examples: ['暂未启用游戏内喊话'], notes: ['当前只展示工具声明和审批边界，不会调用模型。', '后续启用前会增加逐次确认和可撤销操作。'], next: ['自然语言任务规划', '工具调用审批中心'] }
 };
 
-function SkillsPage({ bots, selected, skillOverview, onOpenSkill, run }: { bots: BotStatus[]; selected?: BotStatus; skillOverview: SkillOverview | null; onOpenSkill: (key: string) => void; run: (action: () => Promise<unknown>, refresh?: boolean) => Promise<void> }) {
+function SkillsPage({ bots, selected, skillOverview, onOpenSkill, run }: { bots: BotStatus[]; selected?: BotStatus; skillOverview: SkillOverview | null; onOpenSkill: (key: string) => void; run: (action: () => Promise<unknown>, refresh?: boolean) => Promise<unknown> }) {
   return <><div className="page-heading compact"><div><span className="eyebrow">AUTOMATION / SKILLS</span><h1>技能中心</h1><p>每项技能都是独立模块，声明指令、能力边界与未来的 OpenAI 工具链。</p></div><span className="soft-badge large">7 个技能模块</span></div><SkillSettingsPanel bots={bots} selected={selected} overview={skillOverview} run={run} /><div className="skills-notice"><div className="notice-icon">✦</div><div><strong>模块化设计已就绪</strong><p>后续新增技能只需在 <code>apps/server/src/core/skills/</code> 添加独立 JS 文件，再注册到技能目录。</p></div><span className="status-chip">对话功能暂未启用</span></div><div className="skills-grid">{skills.map((skill) => { const enabledCount = bots.filter((bot) => bot.skills?.[skill.key as SkillKey]?.enabled).length; return <article className="skill-card" key={skill.key}><div className="skill-card-top"><span className="skill-icon">{skill.icon}</span><span className="status-chip">{enabledCount ? `${enabledCount} 个机器人启用` : skill.status}</span></div><h3>{skill.name}</h3><p>{skill.description}</p><div className="skill-capabilities">{skill.capabilities.map((capability) => <span key={capability}>{capability}</span>)}</div><div className="skill-commands">{skill.commands.map((command) => <code key={command}>{command}</code>)}</div><div className="skill-card-foot"><span>模块文件</span><strong>{skill.key}.js</strong><button className="icon-button" title="查看使用方法" onClick={() => onOpenSkill(skill.key)}>↗</button></div></article>; })}</div></>;
 }
 
@@ -374,7 +377,7 @@ const defaultSkillSettings = (): SkillSettings => ({
   'openai-tools': { enabled: false, priority: 1, autoStart: false }
 });
 
-function SkillSettingsPanel({ bots, selected, overview, run }: { bots: BotStatus[]; selected?: BotStatus; overview: SkillOverview | null; run: (action: () => Promise<unknown>, refresh?: boolean) => Promise<void> }) {
+function SkillSettingsPanel({ bots, selected, overview, run }: { bots: BotStatus[]; selected?: BotStatus; overview: SkillOverview | null; run: (action: () => Promise<unknown>, refresh?: boolean) => Promise<unknown> }) {
   const [scope, setScope] = useState<'global' | 'bot'>('bot');
   const [botId, setBotId] = useState(selected?.id || bots[0]?.id || '');
   const [settings, setSettings] = useState<SkillSettings>(overview?.global || defaultSkillSettings());
@@ -388,12 +391,12 @@ function SkillSettingsPanel({ bots, selected, overview, run }: { bots: BotStatus
   return <section className="card skill-settings-panel"><div className="card-header"><div><span className="eyebrow">SKILL POLICY / RUNTIME</span><h3>技能开关与任务优先级</h3><p className="muted">全局设置作为默认值；单机器人设置会覆盖全局。启用只是开放能力，只有勾选“随机器人启动”才会在连接后自动运行，默认不会让机器人移动。</p></div><span className="soft-badge">可复制配置</span></div><div className="skill-policy-toolbar"><div className="mode-switch"><button type="button" className={scope === 'global' ? 'active' : ''} onClick={() => setScope('global')}>全局默认</button><button type="button" className={scope === 'bot' ? 'active' : ''} onClick={() => setScope('bot')}>单机器人</button></div>{scope === 'bot' && <select value={botId} onChange={(event) => setBotId(event.target.value)}>{bots.map((bot) => <option key={bot.id} value={bot.id}>{bot.displayName}</option>)}</select>}<button type="button" className="primary" onClick={save}>保存技能配置</button>{scope === 'bot' && <button type="button" className="secondary" onClick={copy}>复制给其他机器人</button>}</div><div className="skill-policy-grid">{skills.map((skill) => { const key = skill.key as SkillKey; return <label className="skill-policy-row" key={skill.key}><span className="skill-policy-name"><b>{skill.icon}</b>{skill.name}</span><input type="checkbox" checked={settings[key]?.enabled || false} onChange={(event) => update(key, 'enabled', event.target.checked)} /><span>启用</span><input type="checkbox" checked={settings[key]?.autoStart || false} disabled={!settings[key]?.enabled || !['combat', 'fishing', 'mining', 'supply'].includes(key)} onChange={(event) => update(key, 'autoStart', event.target.checked)} /><span title="只有动作技能支持自动启动">随机器人启动</span><input className="priority-input" type="number" min="1" max="100" value={settings[key]?.priority ?? 1} onChange={(event) => update(key, 'priority', Number(event.target.value))} /><small>优先级</small></label>; })}</div><div className="bot-skill-status"><strong>当前机器人运行状态</strong>{bots.map((bot) => { const enabled = (Object.keys(bot.skills || {}) as SkillKey[]).filter((key) => bot.skills?.[key]?.enabled); return <div key={bot.id} className="bot-skill-status-row"><span>{bot.displayName}</span><div><small>已启用：</small>{enabled.length ? enabled.map((key) => <code key={`enabled-${key}`}>{key}</code>) : <em>无</em>}<small> · 运行中：</small>{bot.activeSkills.length ? bot.activeSkills.map((key) => <code key={`active-${key}`}>{key}</code>) : <em>无</em>}</div><small>{bot.scheduler?.active ? `调度中：${bot.scheduler.active}` : '调度器空闲'}</small></div>; })}</div></section>;
 }
 
-function SkillGuideModal({ skill, bots, selected, run, onClose }: { skill: typeof skills[number]; bots: BotStatus[]; selected?: BotStatus; run: (action: () => Promise<unknown>, refresh?: boolean) => Promise<void>; onClose: () => void }) {
+function SkillGuideModal({ skill, bots, selected, run, onClose }: { skill: typeof skills[number]; bots: BotStatus[]; selected?: BotStatus; run: (action: () => Promise<unknown>, refresh?: boolean) => Promise<unknown>; onClose: () => void }) {
   const guide = skillGuides[skill.key] || { examples: [], notes: [], next: [] };
   return <div className="editor-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}><div className="editor-modal skill-guide-modal" role="dialog" aria-modal="true" aria-labelledby="skill-guide-title"><div className="drawer-head"><div><span className="eyebrow">SKILL GUIDE / {skill.key}.js</span><h2 id="skill-guide-title">{skill.name} · 怎么使用</h2></div><button type="button" className="icon-button" onClick={onClose}>×</button></div><p className="modal-intro">{skill.description}</p>{skill.key === 'mining' ? <MiningSkillSettings bots={bots} selected={selected} run={run} /> : skill.key === 'supply' ? <SupplySkillSettings bots={bots} selected={selected} run={run} /> : <><section><h3>游戏中怎么喊话</h3><div className="chat-examples">{guide.examples.map((example) => <code className="chat-example" key={example}>{example}</code>)}</div><p className="muted">在 Minecraft 聊天框直接输入即可。建议使用“机器人名 + 指令”，例如 <code>Shinano kill on</code>；指令仍会受该机器人的独立白名单保护。</p></section><section><h3>使用建议</h3><ul className="guide-list">{guide.notes.map((note) => <li key={note}>{note}</li>)}</ul></section><section><h3>下一轮候选技能（本轮不启用）</h3><ul className="guide-list skill-next-list">{guide.next.map((item) => <li key={item}>{item}</li>)}</ul></section></>}<div className="drawer-actions"><button type="button" className="primary" onClick={onClose}>知道了</button></div></div></div>;
 }
 
-function MiningSkillSettings({ bots, selected, run }: { bots: BotStatus[]; selected?: BotStatus; run: (action: () => Promise<unknown>, refresh?: boolean) => Promise<void> }) {
+function MiningSkillSettings({ bots, selected, run }: { bots: BotStatus[]; selected?: BotStatus; run: (action: () => Promise<unknown>, refresh?: boolean) => Promise<unknown> }) {
   const [botId, setBotId] = useState(selected?.id || bots[0]?.id || '');
   const currentBot = bots.find((bot) => bot.id === botId) || selected;
   const region = currentBot?.region;
@@ -485,7 +488,7 @@ function MiningSkillSettings({ bots, selected, run }: { bots: BotStatus[]; selec
   </section>;
 }
 
-function SupplySkillSettings({ bots, selected, run }: { bots: BotStatus[]; selected?: BotStatus; run: (action: () => Promise<unknown>, refresh?: boolean) => Promise<void> }) {
+function SupplySkillSettings({ bots, selected, run }: { bots: BotStatus[]; selected?: BotStatus; run: (action: () => Promise<unknown>, refresh?: boolean) => Promise<unknown> }) {
   const [botId, setBotId] = useState(selected?.id || bots[0]?.id || '');
   const currentBot = bots.find((bot) => bot.id === botId) || selected;
   const [points, setPoints] = useState<SupplyPoint[]>(currentBot?.resupplyPoints || []);
@@ -598,13 +601,13 @@ function SupplySkillSettings({ bots, selected, run }: { bots: BotStatus[]; selec
   </section>;
 }
 
-function FirstPersonControls({ botId, run }: { botId: string; run: (action: () => Promise<unknown>, refresh?: boolean) => Promise<void> }) {
+function FirstPersonControls({ botId, run }: { botId: string; run: (action: () => Promise<unknown>, refresh?: boolean) => Promise<unknown> }) {
   const [yaw, setYaw] = useState(0);
   const [pitch, setPitch] = useState(0);
   const apply = () => run(() => sendCommand(botId, `look ${yaw} ${pitch}`));
   return <div className="first-person-controls"><span>第一人称视角</span><label>水平 <input type="range" min="-180" max="180" value={yaw} onChange={(event) => setYaw(Number(event.target.value))} /><b>{yaw}°</b></label><label>俯仰 <input type="range" min="-90" max="90" value={pitch} onChange={(event) => setPitch(Number(event.target.value))} /><b>{pitch}°</b></label><button className="secondary" onClick={apply}>应用视角</button><small>Viewer 会跟随机器人的真实 yaw / pitch；浏览器鼠标不会直接接管机器人视角。</small></div>;
 }
-function DetailPage({ bots, onSelectBot, selected, selectedDefinition, logs, command, setCommand, submitCommand, run, previewMode, setPreviewMode, viewerUrl, openEdit }: { bots: BotStatus[]; onSelectBot: (id: string) => void; selected: BotStatus; selectedDefinition?: BotDefinition; logs: LogEntry[]; command: string; setCommand: (value: string) => void; submitCommand: (event: FormEvent) => Promise<void>; run: (action: () => Promise<unknown>, refresh?: boolean) => Promise<void>; previewMode: 'status' | 'viewer'; setPreviewMode: (mode: 'status' | 'viewer') => void; viewerUrl: string; openEdit: () => void }) {
+function DetailPage({ bots, onSelectBot, selected, selectedDefinition, logs, command, setCommand, submitCommand, run, previewMode, setPreviewMode, viewerUrl, openEdit }: { bots: BotStatus[]; onSelectBot: (id: string) => void; selected: BotStatus; selectedDefinition?: BotDefinition; logs: LogEntry[]; command: string; setCommand: (value: string) => void; submitCommand: (event: FormEvent) => Promise<void>; run: (action: () => Promise<unknown>, refresh?: boolean) => Promise<unknown>; previewMode: 'status' | 'viewer'; setPreviewMode: (mode: 'status' | 'viewer') => void; viewerUrl: string; openEdit: () => void }) {
   const inventory = selected.inventory || [];
   const [viewerRevision, setViewerRevision] = useState(0);
   const switchPerspective = async (firstPerson: boolean) => {

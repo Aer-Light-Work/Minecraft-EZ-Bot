@@ -66,6 +66,10 @@ test('web API manages bot definitions and whitelist without starting Minecraft',
   const listed = await api(base, '/api/config');
   assert.equal(listed.body.bots.length, 1);
 
+  const workflowNodes = await api(base, '/api/workflow-nodes');
+  assert.equal(workflowNodes.status, 200);
+  assert.equal(workflowNodes.body.nodes.some((node) => node.type === 'find_supply_point'), true);
+
   const workflowSaved = await api(base, '/api/workflows', {
     method: 'PUT',
     body: JSON.stringify({ workflows: [{ id: 'test-flow', name: 'Test flow', nodes: [{ id: 'start', type: 'start' }, { id: 'end', type: 'end' }], edges: [{ source: 'start', target: 'end' }] }] })

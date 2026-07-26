@@ -153,13 +153,64 @@ export async function fetchConfig(): Promise<{ bots: BotDefinition[]; web: WebCo
 }
 
 
-export type WorkflowNodeType = 'start' | 'ensure_mining_home' | 'has_usable_pickaxe' | 'resupply' | 'goto_home' | 'start_region_mining' | 'stop_region_mining' | 'equip' | 'wait' | 'log' | 'end';
-export interface WorkflowNode { id: string; type: WorkflowNodeType; label: string; x: number; y: number; params: Record<string, unknown> }
-export interface WorkflowEdge { source: string; target: string; when: 'next' | 'true' | 'false' | 'error' }
-export interface WorkflowDefinition { id: string; name: string; description: string; enabled: boolean; trigger: Record<string, unknown>; nodes: WorkflowNode[]; edges: WorkflowEdge[] }
+export type WorkflowNodeType = 'start' | 'ensure_mining_home' | 'has_usable_pickaxe' | 'find_supply_point' | 'resupply_at_point' | 'resupply' | 'goto_home' | 'start_region_mining' | 'stop_region_mining' | 'equip' | 'wait' | 'log' | 'end';
+export type WorkflowBranch = 'next' | 'true' | 'false' | 'error';
+export interface WorkflowPin { id: string; type: string; label: string }
+export interface WorkflowParameterDefinition {
+  id: string;
+  type: 'string' | 'number' | 'boolean' | 'select';
+  label: string;
+  defaultValue?: unknown;
+  required?: boolean;
+  min?: number;
+  max?: number;
+  options?: string[];
+}
+export interface WorkflowNodeDefinition {
+  type: WorkflowNodeType;
+  category: string;
+  label: string;
+  description: string;
+  color: string;
+  inputs: WorkflowPin[];
+  outputs: WorkflowPin[];
+  params: WorkflowParameterDefinition[];
+}
+export interface WorkflowNode {
+  id: string;
+  type: WorkflowNodeType;
+  label: string;
+  position: { x: number; y: number };
+  params: Record<string, unknown>;
+  retry: { maxAttempts: number; delayMs: number };
+  timeoutMs: number;
+}
+export interface WorkflowEdge {
+  id: string;
+  source: string;
+  target: string;
+  sourceHandle: WorkflowBranch;
+  targetHandle: string;
+}
+export interface WorkflowDefinition {
+  schemaVersion: number;
+  id: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  trigger: Record<string, unknown>;
+  variables: Record<string, unknown>;
+  settings: { maxSteps: number; timeoutMs: number };
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+}
 
 export async function fetchWorkflows(): Promise<WorkflowDefinition[]> {
   return (await request<{ workflows: WorkflowDefinition[] }>('/api/workflows')).workflows;
+}
+
+export async function fetchWorkflowNodeTypes(): Promise<WorkflowNodeDefinition[]> {
+  return (await request<{ nodes: WorkflowNodeDefinition[] }>('/api/workflow-nodes')).nodes;
 }
 
 export function saveWorkflows(workflows: WorkflowDefinition[]) {
@@ -167,7 +218,7 @@ export function saveWorkflows(workflows: WorkflowDefinition[]) {
 }
 
 export function runWorkflow(id: string, workflowId: string, input: Record<string, unknown> = {}) {
-  return request<Result>(`/api/bots/${encodeURIComponent(id)}/workflow`, { method: 'POST', body: JSON.stringify({ workflowId, input }) });
+  return request<Result & { result?: { trace?: string[]; traceEntries?: Array<Record<string, unknown>> } }>(`/api/bots/${encodeURIComponent(id)}/workflow`, { method: 'POST', body: JSON.stringify({ workflowId, input }) });
 }
 
 export interface SkillOverview {

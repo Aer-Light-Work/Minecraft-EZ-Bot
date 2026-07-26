@@ -288,15 +288,33 @@ class BotManager extends EventEmitter {
   workflows() {
     return (this.config.workflows || []).map((workflow) => ({
       ...workflow,
-      nodes: workflow.nodes.map((node) => ({ ...node, params: { ...node.params } })),
+      variables: { ...(workflow.variables || {}) },
+      settings: { ...(workflow.settings || {}) },
+      nodes: workflow.nodes.map((node) => ({
+        ...node,
+        position: { ...(node.position || {}) },
+        params: { ...node.params },
+        retry: { ...(node.retry || {}) }
+      })),
       edges: workflow.edges.map((edge) => ({ ...edge }))
     }));
   }
 
+  workflowNodeTypes() {
+    const runtime = this.bots.values().next().value;
+    if (runtime?.workflowEngine) return runtime.workflowEngine.listNodeTypes();
+    const { createDefaultWorkflowNodeRegistry } = require('./workflow-node-registry');
+    return createDefaultWorkflowNodeRegistry().list();
+  }
+
   updateWorkflows(workflows) {
-    const { normalizeWorkflows } = require('../config/workflow-config');
+    const { normalizeWorkflows, validateWorkflow } = require('../config/workflow-config');
+    const { createDefaultWorkflowNodeRegistry } = require('./workflow-node-registry');
     const normalized = normalizeWorkflows(workflows);
     if (!normalized.length && Array.isArray(workflows) && workflows.length) return { ok: false, message: 'No valid workflows were provided.' };
+    const registry = createDefaultWorkflowNodeRegistry();
+    const invalid = normalized.map((workflow) => ({ workflow, validation: validateWorkflow(workflow, registry) })).find((entry) => !entry.validation.valid);
+    if (invalid) return { ok: false, message: `Workflow ${invalid.workflow.id} is invalid: ${invalid.validation.errors.join(' ')}` };
     try {
       saveWorkflows(this.config, normalized);
       this.config.workflows = normalized;

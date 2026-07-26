@@ -100,6 +100,7 @@ function createWebServer(manager) {
       }
 
       if (pathname === '/api/workflows' && request.method === 'GET') return json(response, 200, { workflows: manager.workflows() });
+      if (pathname === '/api/workflow-nodes' && request.method === 'GET') return json(response, 200, { nodes: manager.workflowNodeTypes() });
       if (pathname === '/api/workflows' && request.method === 'PUT') {
         const body = await parseBody(request);
         return sendResult(response, manager.updateWorkflows(body.workflows));
