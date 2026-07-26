@@ -24,7 +24,7 @@
       "fishing": { "enabled": false, "priority": 20, "autoStart": false },
       "pathfinder": { "enabled": false, "priority": 30, "autoStart": false },
       "mining": { "enabled": false, "priority": 45, "autoStart": false },
-      "supply": { "enabled": false, "priority": 85, "autoStart": false },
+      "supply": { "enabled": false, "priority": 85, "autoStart": false, "notifyOnNoFood": false },
       "chat-command": { "enabled": true, "priority": 10, "autoStart": false },
       "openai-tools": { "enabled": false, "priority": 1, "autoStart": false }
     }

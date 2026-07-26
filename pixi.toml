@@ -15,6 +15,6 @@ test = { cmd = "npm test", description = "Run the server test suite" }
 build = { cmd = "npm run build", description = "Build the React web UI" }
 bot = { cmd = "npm run bot --", description = "Run one bot; append its id, for example: pixi run bot Yukikaze" }
 bots = { cmd = "npm run bots", description = "Run all configured bots in CLI mode" }
-server = { cmd = "npm run server", description = "Start the optional web control server" }
+start = { cmd = "npm run server", description = "Start the optional web control server" }
 web-dev = { cmd = "npm run web:dev", description = "Start the Vite development UI" }
 dev = { cmd = "npm run dev", description = "Start the API and Vite UI together" }

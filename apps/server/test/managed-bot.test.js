@@ -100,6 +100,31 @@ test('recognizes a pickaxe from the hotbar slot and item id when name is absent'
   assert.equal(managedBot.pickaxeDiagnostics()[0].name, 'diamond_pickaxe');
 });
 
+test('only sends no-food alerts when the supply setting enables them', async () => {
+  const managedBot = createManagedBot();
+  const chatMessages = [];
+  managedBot.bot = {
+    health: 20,
+    food: 10,
+    inventory: { items: () => [] },
+    chat(message) { chatMessages.push(message); }
+  };
+
+  await managedBot.checkResourceAlerts();
+  assert.equal(managedBot.activeAlerts.has('no-food'), false);
+  assert.deepEqual(chatMessages, []);
+
+  managedBot.updateSkillConfig({ supply: { enabled: true, notifyOnNoFood: true } });
+  await managedBot.checkResourceAlerts();
+  assert.equal(managedBot.activeAlerts.has('no-food'), true);
+  assert.equal(chatMessages.length, 1);
+
+  managedBot.updateSkillConfig({ supply: { enabled: true, notifyOnNoFood: false } });
+  await managedBot.checkResourceAlerts();
+  assert.equal(managedBot.activeAlerts.has('no-food'), false);
+  assert.equal(chatMessages.length, 1);
+});
+
 test('uses component damage when deciding whether a modern pickaxe is too damaged', () => {
   const managedBot = createManagedBot();
   managedBot.bot = {

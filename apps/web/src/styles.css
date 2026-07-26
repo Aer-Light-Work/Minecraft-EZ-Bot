@@ -190,6 +190,14 @@ button:disabled { cursor: not-allowed; opacity: .45; }
 .skill-policy-name { display: flex; gap: 8px; align-items: center; font-weight: 700; }
 .skill-policy-name b { color: #168344; }
 .priority-input { width: 64px; }
+.skill-policy-option { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 12px 14px; border: 1px solid var(--line, #dfe9e2); border-radius: 14px; background: #fbfdfb; cursor: pointer; }
+.skill-policy-option input { position: absolute; opacity: 0; }
+.skill-policy-option > span { position: relative; width: 30px; height: 17px; flex: 0 0 auto; border-radius: 20px; background: #d8e2da; }
+.skill-policy-option > span::after { content: ''; position: absolute; width: 13px; height: 13px; top: 2px; left: 2px; border-radius: 50%; background: white; transition: .18s; }
+.skill-policy-option input:checked + span { background: #62b675; }
+.skill-policy-option input:checked + span::after { left: 15px; }
+.skill-policy-option div { display: grid; gap: 3px; }
+.skill-policy-option small { color: #83958b; }
 .bot-skill-status { display: grid; gap: 8px; margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line, #dfe9e2); }
 .bot-skill-status-row { display: grid; grid-template-columns: 130px 1fr auto; gap: 12px; align-items: center; font-size: 13px; }
 .bot-skill-status-row code { margin-right: 6px; }

@@ -46,11 +46,13 @@ function normalizeSkillSettings(base = {}, override = {}) {
     const enabled = firstDefined(sources, 'enabled');
     const priority = firstDefined(sources, 'priority');
     const autoStart = firstDefined(sources, 'autoStart');
-    result[key] = {
+    const settings = {
       enabled: enabled === undefined ? key === 'chat-command' : enabled === true,
       priority: Number.isFinite(Number(priority)) ? Number(priority) : DEFAULT_SKILL_PRIORITIES[key],
       autoStart: autoStart === true
     };
+    if (key === 'supply') settings.notifyOnNoFood = firstDefined(sources, 'notifyOnNoFood') === true;
+    result[key] = settings;
   }
   return result;
 }

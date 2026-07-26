@@ -2043,13 +2043,14 @@ class ManagedBot extends EventEmitter {
     const hasFood = items.some((item) => this.isFoodItem(item));
     const lowHealth = typeof bot.health === 'number' && bot.health <= 8;
     const hungryWithoutFood = typeof bot.food === 'number' && bot.food <= 14 && !hasFood;
+    const notifyOnNoFood = this.skillConfig?.supply?.notifyOnNoFood === true;
     const miningNeedsPickaxe = (this.mining || this.regionMining) && !this.hasUsablePickaxe();
     this.resourceAlert('low-health', lowHealth, `生命值过低（${Math.round(bot.health)}/20），已关闭战斗，需要食物或治疗。`);
     if (lowHealth && this.killAuraEnabled) {
       this.killAuraEnabled = false;
       bot.pvp?.stop();
     }
-    this.resourceAlert('no-food', hungryWithoutFood, `饱食度较低（${Math.round(bot.food)}/20），背包里没有找到可食用物品。`);
+    this.resourceAlert('no-food', notifyOnNoFood && hungryWithoutFood, `饱食度较低（${Math.round(bot.food)}/20），背包里没有找到可食用物品。`);
     const pickaxeDiagnostics = this.pickaxeDiagnostics();
     const pickaxeMessage = miningNeedsPickaxe
       ? `挖矿需要可用镐；审核条件：物品名、物品 ID 或手持栏位能识别为 pickaxe，且剩余耐久必须大于 20。当前检测：${pickaxeDiagnostics.length ? pickaxeDiagnostics.map((item) => `${item.name}（${item.usable ? '可用' : '耐久不足'}）`).join('、') : `未找到（背包数据：${items.length ? items.map((item) => this.itemName(item) || `type:${item.type ?? 'unknown'}`).join('、') : '为空'}）`}。`

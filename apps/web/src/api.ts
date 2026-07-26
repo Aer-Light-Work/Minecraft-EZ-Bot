@@ -1,7 +1,7 @@
 export type BotState = 'stopped' | 'connecting' | 'online' | 'reconnecting' | 'error';
 
 export type SkillKey = 'combat' | 'fishing' | 'pathfinder' | 'mining' | 'supply' | 'chat-command' | 'openai-tools';
-export type SkillSettings = Record<SkillKey, { enabled: boolean; priority: number; autoStart: boolean }>;
+export type SkillSettings = Record<SkillKey, { enabled: boolean; priority: number; autoStart: boolean; notifyOnNoFood?: boolean }>;
 
 export interface SupplyCoordinate { x: number; y: number; z: number }
 export interface SupplyContainer extends SupplyCoordinate { role: 'storage' | 'pickup' | 'mixed' }

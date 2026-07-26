@@ -14,6 +14,7 @@ test('merges legacy survival settings into safe Home supply policy', () => {
   assert.equal(normalized.supply.enabled, true);
   assert.equal(normalized.supply.priority, 77);
   assert.equal(normalized.supply.autoStart, false);
+  assert.equal(normalized.supply.notifyOnNoFood, false);
   assert.equal('survival' in normalized, false);
   assert.equal(SKILL_KEYS.includes('survival'), false);
 });
@@ -113,7 +114,7 @@ test('persists global and per-bot skill policies and copies them between bots', 
   const alphaResult = manager.updateSkills('bot', 'alpha', {
     ...manager.skillSettings().global,
     combat: { enabled: true, priority: 92 },
-    supply: { enabled: true, priority: 88 }
+    supply: { enabled: true, priority: 88, notifyOnNoFood: true }
   });
   assert.equal(alphaResult.ok, true);
   const copyResult = manager.copySkills('alpha', ['beta']);
@@ -121,11 +122,13 @@ test('persists global and per-bot skill policies and copies them between bots', 
   assert.equal(manager.get('beta').effectiveSkillConfig().combat.priority, 92);
   assert.equal(manager.get('beta').effectiveSkillConfig().supply.enabled, true);
   assert.equal(manager.get('beta').effectiveSkillConfig().supply.autoStart, false);
+  assert.equal(manager.get('beta').effectiveSkillConfig().supply.notifyOnNoFood, true);
 
   const saved = JSON.parse(fs.readFileSync(config.botsPath, 'utf8'));
   assert.equal(saved.defaults.skills.mining.priority, 68);
   assert.equal(saved.bots.find((bot) => bot.id === 'alpha').skills.combat.enabled, true);
   assert.equal(saved.bots.find((bot) => bot.id === 'beta').skills.supply.priority, 88);
+  assert.equal(saved.bots.find((bot) => bot.id === 'beta').skills.supply.notifyOnNoFood, true);
 });
 
 test('normalizes and persists fixed supply stations with beds and multiple container roles', (t) => {
