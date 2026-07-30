@@ -6,9 +6,19 @@
 
 不要调用系统 Node.js/npm；仓库的 `preinstall` 也会阻止非 Pixi 安装。
 
+**PowerShell：**
 ```powershell
 Copy-Item config/bots.example.json config/bots.local.json
 Copy-Item config/whitelist.example.json config/whitelist.local.json
+pixi run install
+pixi run check
+pixi run test
+```
+
+**Bash（Linux / macOS）：**
+```bash
+cp config/bots.example.json config/bots.local.json
+cp config/whitelist.example.json config/whitelist.local.json
 pixi run install
 pixi run check
 pixi run test
@@ -18,17 +28,17 @@ pixi run test
 
 ## Pixi 命令
 
-```powershell
+```shell
 pixi run bot Musashi  # 启动一个机器人和交互式 CLI
 pixi run bots         # 启动全部 enabled 机器人（无需 Web）
-pixi run server       # 启动生产 API 和已构建 Web UI
+pixi run start        # 启动生产 API 和已构建 Web UI
 pixi run dev          # 同时启动 API 与 Vite 开发服务器
 pixi run check        # 检查后端语法和示例配置
 pixi run test         # 运行聊天解析、配置持久化和 API 测试
 pixi run build        # 类型检查并构建 React UI
 ```
 
-生产 UI 默认位于 `http://127.0.0.1:3000`。`pixi run server` 不会强制启动机器人；只有 `web.autoStart` 中列出的机器人会自动连接。
+生产 UI 默认位于 `http://127.0.0.1:3000`。`pixi run start` 不会强制启动机器人；只有 `web.autoStart` 中列出的机器人会自动连接。
 
 ## Web 管理
 
@@ -44,15 +54,21 @@ Web 控制台支持：
 
 ## 复合技能工作流
 
-工作流把机器人能力拆成可复用节点，并通过 JSON 保存：`start`、`ensure_mining_home`、`has_usable_pickaxe`、`resupply`、`goto_home`、`equip`、`start_region_mining`、`stop_region_mining`、`wait`、`log` 和 `end`。分支节点可以使用 `true`、`false`、`error` 三种出口，因此“有镐子直接挖、没有镐子去补给点、补给失败进入错误收尾”可以被配置成一张图，而不是写死在一个超长函数里。
+工作流把机器人能力拆成可复用节点，并通过 JSON 保存：`start`、`ensure_mining_home`、`has_usable_pickaxe`、`resupply`、`goto_home`、`equip`、`start_region_mining`、`stop_region_mining`、`wait`、`log` 和 `end`。分支节点可以使用 `true`、`false`、`error` 三种出口，因此"有镐子直接挖、没有镐子去补给点、补给失败进入错误收尾"可以被配置成一张图，而不是写死在一个超长函数里。
 
 首次使用时复制示例配置：
 
+**PowerShell：**
 ```powershell
 Copy-Item config/workflows.example.json config/workflows.local.json
 ```
 
-然后可以在 Web 控制台的“复合工作流”页面拖拽节点、配置参数、连线、导入/导出 JSON，并保存到本地工作流配置。CLI 或 Web API 也可以启动工作流：
+**Bash：**
+```bash
+cp config/workflows.example.json config/workflows.local.json
+```
+
+然后可以在 Web 控制台的"复合工作流"页面拖拽节点、配置参数、连线、导入/导出 JSON，并保存到本地工作流配置。CLI 或 Web API 也可以启动工作流：
 
 ```text
 workflow run region-mining-safe
@@ -75,9 +91,16 @@ status all
 
 `come` 和 `follow` 在游戏聊天中默认以发命令的玩家为目标；Web/CLI 中则显式填写玩家名，例如 `come PlayerName`。
 
+## 登录代理
+
+每个机器人可以配置独立的 SOCKS5/HTTP 代理，仅用于 Microsoft/Mojang 登录鉴权的 HTTP(S) 请求。代理不会影响 Bot 与 Minecraft 服务器之间的原始 TCP 连接。
+
+在 Bot 配置中添加 `authProxy` 字段（例如 `"authProxy": "socks5://127.0.0.1:1080"`），或在 Web 管理端的机器人编辑器中勾选"启用登录代理"并填入地址即可。
+
 ## 目录与安全
 
 - `apps/server/src/core/`：机器人生命周期和统一命令。
+- `apps/server/src/core/auth-proxy.js`：登录鉴权代理模块（SOCKS5/HTTP）。
 - `apps/server/src/web/`：控制 API 与静态 UI 服务。
 - `apps/web/`：React + TypeScript + Vite 前端。
 - `config/*.example.json`：可提交模板；`*.local.json` 永不提交。

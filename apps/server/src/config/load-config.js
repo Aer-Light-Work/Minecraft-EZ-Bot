@@ -136,6 +136,16 @@ function normalizeSupplyPoint(point, index = 0) {
   };
 }
 
+function normalizeAuthProxy(value) {
+  if (!value) return null;
+  const str = String(value).trim();
+  try {
+    const parsed = new URL(str);
+    if (!['http:', 'https:', 'socks5:', 'socks5h:', 'socks4:', 'socks4a:'].includes(parsed.protocol)) return null;
+    return str;
+  } catch { return null; }
+}
+
 function normalizeBotDefinition(bot, defaults = {}, index = 0) {
   if (!bot || !bot.id || !bot.host || !bot.username) {
     throw new Error(`Bot at index ${index} needs id, host, and username.`);
@@ -155,6 +165,7 @@ function normalizeBotDefinition(bot, defaults = {}, index = 0) {
       firstPerson: false,
       ...(bot.viewer || {})
     },
+    authProxy: normalizeAuthProxy(bot.authProxy),
     commandWhitelist: Array.isArray(bot.commandWhitelist) ? [...new Set(bot.commandWhitelist.map((name) => String(name).trim()).filter(Boolean))] : null,
     resupplyPoints: Array.isArray(bot.resupplyPoints) ? bot.resupplyPoints.map(normalizeSupplyPoint).filter(Boolean) : [],
     homeTargets: Array.isArray(bot.homeTargets) ? bot.homeTargets.map(normalizeHomeTarget).filter(Boolean) : [],
@@ -252,6 +263,7 @@ module.exports = {
   normalizeSkillSettings,
   normalizeSupplyPoint,
   normalizeHomeTarget,
+  normalizeAuthProxy,
   validateBotDefinitions,
   readJson,
   normalizeWorkflows,

@@ -66,6 +66,7 @@ export interface BotDefinition {
   username: string;
   auth: string;
   version: string;
+  authProxy?: string | null;
   viewer: ViewerConfig;
   commandWhitelist?: string[] | null;
   resupplyPoints?: SupplyPoint[];

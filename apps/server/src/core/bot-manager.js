@@ -58,6 +58,7 @@ class BotManager extends EventEmitter {
       username: bot.username,
       auth: bot.auth || 'microsoft',
       version: bot.version || '',
+      authProxy: bot.authProxy || null,
       viewer: { ...bot.viewer },
       commandWhitelist: bot.commandWhitelist ? [...bot.commandWhitelist] : null,
       resupplyPoints: bot.resupplyPoints ? bot.resupplyPoints.map((point) => ({ ...point, containers: point.containers?.map((container) => ({ ...container })) || [], bed: point.bed ? { ...point.bed } : null })) : [],

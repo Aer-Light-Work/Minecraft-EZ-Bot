@@ -1,6 +1,7 @@
 const EventEmitter = require('node:events');
 const mineflayer = require('mineflayer');
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder');
+const { activateAuthProxy, deactivateAuthProxy } = require('./auth-proxy');
 const autoEat = require('mineflayer-auto-eat').plugin;
 const pvp = require('mineflayer-pvp').plugin;
 const mineflayerViewer = require('prismarine-viewer').mineflayer;
@@ -164,6 +165,18 @@ class ManagedBot extends EventEmitter {
   createBot() {
     this.setState('connecting');
     this.lastError = null;
+
+    // Activate auth proxy if configured — only affects HTTP(S) auth requests
+    // (prismarine-auth for Microsoft, yggdrasil for Mojang). The raw TCP
+    // connection to the Minecraft server uses net.connect() and is unaffected.
+    const authProxyUrl = this.definition.authProxy;
+    if (authProxyUrl) {
+      this.log(`[auth-proxy] Activating proxy for auth: ${authProxyUrl}`, 'info');
+      activateAuthProxy(authProxyUrl).catch((err) => {
+        this.log(`[auth-proxy] Failed to activate proxy: ${err.message}`, 'warn');
+      });
+    }
+
     const options = {
       checkTimeoutInterval: this.definition.checkTimeoutInterval,
       viewDistance: this.definition.viewDistance,
@@ -181,6 +194,7 @@ class ManagedBot extends EventEmitter {
     delete options.commandWhitelist;
     delete options.resupplyPoints;
     delete options.miningRegion;
+    delete options.authProxy; // not a mineflayer option; only used to patch HTTP(S) agents
     if (options.auth === 'microsoft') {
       options.onMsaCode = (data) => {
         const verification = data.verification_uri || data.verificationUri || 'https://www.microsoft.com/link';
@@ -218,6 +232,11 @@ class ManagedBot extends EventEmitter {
 
     bot.on('login', () => {
       this.log(`${bot.username || this.displayName} logged in.`);
+      // Deactivate auth proxy: auth is done, no more HTTP auth requests needed.
+      if (authProxyUrl) {
+        deactivateAuthProxy();
+        this.log('[auth-proxy] Deactivated proxy after successful login.', 'info');
+      }
       if (this.skinCache && bot.username) {
         this.skinCache.ensure(this.id, bot.username, true).then((status) => {
           if (status.cached) this.log(`Player skin cached for ${status.username}.`);
@@ -257,6 +276,8 @@ class ManagedBot extends EventEmitter {
 
     bot.on('error', (error) => {
       if (this.bot !== bot) return;
+      // Deactivate proxy on auth errors (cleanup)
+      if (authProxyUrl) deactivateAuthProxy();
       const text = String(error.message || error).toLowerCase();
       if (text.includes('auth') || text.includes('obtain profile data')) {
         this.lastError = error.message;

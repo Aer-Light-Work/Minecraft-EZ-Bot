@@ -42,6 +42,8 @@ type BotForm = {
   username: string;
   auth: string;
   version: string;
+  authProxyEnabled: boolean;
+  authProxyUrl: string;
   viewerEnabled: boolean;
   viewerPort: string;
   viewerDistance: string;
@@ -97,13 +99,16 @@ const supplyRoleLabels: Record<SupplyRole, string> = { food: '食物补给', pic
 
 const emptyForm: BotForm = {
   id: '', displayName: '', skinUsername: '', enabled: true, host: '', port: '25565', username: '', auth: 'microsoft', version: '',
+  authProxyEnabled: false, authProxyUrl: '',
   viewerEnabled: true, viewerPort: '', viewerDistance: '6', firstPerson: false
 };
 
 function definitionToForm(bot: BotDefinition): BotForm {
   return {
     id: bot.id, displayName: bot.displayName, skinUsername: bot.skinUsername || '', enabled: bot.enabled, host: bot.host, port: String(bot.port),
-    username: bot.username, auth: bot.auth || 'microsoft', version: bot.version || '', viewerEnabled: bot.viewer.enabled,
+    username: bot.username, auth: bot.auth || 'microsoft', version: bot.version || '',
+    authProxyEnabled: Boolean(bot.authProxy), authProxyUrl: bot.authProxy || '',
+    viewerEnabled: bot.viewer.enabled,
     viewerPort: bot.viewer.port ? String(bot.viewer.port) : '', viewerDistance: String(bot.viewer.viewDistance || 6), firstPerson: bot.viewer.firstPerson
   };
 }
@@ -246,6 +251,7 @@ function App() {
       id: form.id.trim(), displayName: form.displayName.trim() || form.id.trim(), skinUsername: form.skinUsername.trim() || undefined, enabled: form.enabled,
       host: form.host.trim(), port: Number(form.port), username: form.username.trim(), auth: form.auth,
       version: form.version.trim() || undefined,
+      authProxy: form.authProxyEnabled && form.authProxyUrl.trim() ? form.authProxyUrl.trim() : null,
       viewer: { enabled: form.viewerEnabled, port: form.viewerPort ? Number(form.viewerPort) : undefined, viewDistance: Number(form.viewerDistance) || 6, firstPerson: form.firstPerson }
     };
     await run(() => editorMode === 'edit' && selected ? updateBot(selected.id, payload) : createBot(payload), true);
@@ -347,7 +353,7 @@ function BotEditor({ editorMode, setEditorMode, form, updateForm, submitBot }: {
     <form className="editor-modal" role="dialog" aria-modal="true" aria-labelledby="bot-editor-title" onSubmit={submitBot}>
       <div className="drawer-head"><div><span className="eyebrow">BOT PROFILE / {editorMode.toUpperCase()}</span><h2 id="bot-editor-title">{editorMode === 'add' ? '创建一个新机器人' : '编辑机器人配置'}</h2></div><button type="button" className="icon-button" onClick={() => setEditorMode(null)}>×</button></div>
       <div className="editor-section"><h3>基础信息</h3><div className="form-grid"><label>机器人 ID<input value={form.id} disabled={editorMode === 'edit'} onChange={(event) => updateForm('id', event.target.value)} required placeholder="yukikaze" /></label><label>显示名称<input value={form.displayName} onChange={(event) => updateForm('displayName', event.target.value)} placeholder="Yukikaze" /></label><label className="wide">服务器地址<input value={form.host} onChange={(event) => updateForm('host', event.target.value)} required placeholder="mc.example.com" /></label><label>游戏端口<input type="number" min="1" max="65535" value={form.port} onChange={(event) => updateForm('port', event.target.value)} required /></label><label>游戏版本<input value={form.version} onChange={(event) => updateForm('version', event.target.value)} placeholder="自动检测" /></label></div></div>
-      <div className="editor-section"><h3>登录与认证</h3><div className="form-grid"><label className="wide">账号 / 用户名<input value={form.username} onChange={(event) => updateForm('username', event.target.value)} required placeholder="Microsoft 邮箱或离线用户名" /><small className="field-hint">Microsoft 登录缓存会按 bot ID 独立保存在 data/auth/ 下。</small></label><label className="wide">皮肤玩家名 / UUID<input value={form.skinUsername} onChange={(event) => updateForm('skinUsername', event.target.value)} placeholder="默认使用实际登录名，离线 bot 可填写正版玩家名" /><small className="field-hint">用于加载头像和第三人称模型，不会用于登录。</small></label><label>认证方式<select value={form.auth} onChange={(event) => updateForm('auth', event.target.value)}><option value="microsoft">Microsoft OAuth</option><option value="offline">离线 / Cracked</option><option value="mojang">Mojang（兼容）</option></select></label><label>第三方验证<select defaultValue="auto"><option value="auto">自动处理（推荐）</option><option value="manual">手动确认</option><option value="none">不启用</option></select></label></div><div className="security-note">▣ 认证状态由 Mineflayer authflow 管理。首次登录请在终端完成设备码验证，不要把 token 提交到 Git。</div></div>
+      <div className="editor-section"><h3>登录与认证</h3><div className="form-grid"><label className="wide">账号 / 用户名<input value={form.username} onChange={(event) => updateForm('username', event.target.value)} required placeholder="Microsoft 邮箱或离线用户名" /><small className="field-hint">Microsoft 登录缓存会按 bot ID 独立保存在 data/auth/ 下。</small></label><label className="wide">皮肤玩家名 / UUID<input value={form.skinUsername} onChange={(event) => updateForm('skinUsername', event.target.value)} placeholder="默认使用实际登录名，离线 bot 可填写正版玩家名" /><small className="field-hint">用于加载头像和第三人称模型，不会用于登录。</small></label><label>认证方式<select value={form.auth} onChange={(event) => updateForm('auth', event.target.value)}><option value="microsoft">Microsoft OAuth</option><option value="offline">离线 / Cracked</option><option value="mojang">Mojang（兼容）</option></select></label><label>第三方验证<select defaultValue="auto"><option value="auto">自动处理（推荐）</option><option value="manual">手动确认</option><option value="none">不启用</option></select></label></div><label className="toggle-row auth-proxy-row"><input type="checkbox" checked={form.authProxyEnabled} onChange={(event) => updateForm('authProxyEnabled', event.target.checked)} /><span />启用登录代理</label><input value={form.authProxyUrl} onChange={(event) => updateForm('authProxyUrl', event.target.value)} disabled={!form.authProxyEnabled} placeholder="socks5://127.0.0.1:1080" /><small className="field-hint">仅用于 Microsoft/Mojang 登录鉴权请求（HTTP/S），不影响与服务器的 TCP 连接。支持 socks5://、http:// 等协议。</small><div className="security-note">▣ 认证状态由 Mineflayer authflow 管理。首次登录请在终端完成设备码验证，不要把 token 提交到 Git。</div></div>
       <div className="editor-section"><h3>Viewer 预览</h3><div className="form-grid"><label>Viewer 端口<input type="number" min="1" max="65535" value={form.viewerPort} onChange={(event) => updateForm('viewerPort', event.target.value)} placeholder="自动分配" disabled={!form.viewerEnabled} /></label><label>视距<input type="number" min="2" max="32" value={form.viewerDistance} onChange={(event) => updateForm('viewerDistance', event.target.value)} disabled={!form.viewerEnabled} /></label><label className="toggle-row"><input type="checkbox" checked={form.enabled} onChange={(event) => updateForm('enabled', event.target.checked)} /><span />允许自动启动</label><label className="toggle-row"><input type="checkbox" checked={form.viewerEnabled} onChange={(event) => updateForm('viewerEnabled', event.target.checked)} /><span />启用内嵌 Viewer</label><label className="toggle-row"><input type="checkbox" checked={form.firstPerson} onChange={(event) => updateForm('firstPerson', event.target.checked)} disabled={!form.viewerEnabled} /><span />默认第一人称</label></div></div>
       <div className="drawer-actions"><button type="button" className="secondary" onClick={() => setEditorMode(null)}>取消</button><button className="primary">保存到本地配置</button></div>
     </form>

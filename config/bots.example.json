@@ -39,6 +39,7 @@
       "username": "your-microsoft-account@example.com",
       "skinUsername": "ExampleBot",
       "auth": "microsoft",
+      "authProxy": null,
       "version": "1.20.4",
       "resupplyPoints": [
         {
