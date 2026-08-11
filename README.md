@@ -1,6 +1,9 @@
 # MC Bot Self
 
 一个由 Pixi 固定运行环境的自托管 Mineflayer 多机器人项目。既可纯 CLI 运行，也可启用 React + TypeScript 控制台，在同一个 Web 管理端中创建、启动和控制多个机器人。
+原作者为 (Moeary)[https://github.com/Moeary/]. 本修改版本增加了登录时使用socks代理，可以缓解地区性网络登录困难问题。
+由于高度采用vibe coding, 本项目和原作都较难维护。除非你真的有闲暇使用，请不要碰这个项目。相信我，我试过，让Agent来vibe都能出现匪夷所思的情况。
+也不要完全相信Agent写在这里的文档，所谓skill添加注册就完事也是假的。
 
 ## 首次安装
 
